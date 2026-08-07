@@ -1,0 +1,20 @@
+[
+  {
+    "id": "secondhand-brewery-san-francisco-ca",
+    "name": "Second Hand Brewery",
+    "brewery_type": "micro",
+    "address_1": "123 Market St",
+    "address_2": null,
+    "address_3": null,
+    "city": "San Francisco",
+    "state_province": "California",
+    "postal_code": "94105",
+    "country": "United States",
+    "longitude": "-122.3982",
+    "latitude": "37.7897",
+    "phone": "4155551234",
+    "website_url": "https://secondhandbrewery.example.com",
+    "state": "California",
+    "street": "123 Market St"
+  }
+]
