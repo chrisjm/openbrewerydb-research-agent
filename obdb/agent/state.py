@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+WebsiteErrorCode = Literal["policy_blocked", "technical_blocked", "config_error"]
+
 
 class OBDBRecord(BaseModel, frozen=True):
     id: str
@@ -22,6 +24,7 @@ class StepError(BaseModel, frozen=True):
     step_id: str
     message: str
     source: str | None = None
+    code: WebsiteErrorCode | None = None
 
 
 class StateLicenseRecord(BaseModel, frozen=True):
