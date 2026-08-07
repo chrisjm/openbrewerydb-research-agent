@@ -1,39 +1,64 @@
-import json as _json
+import csv as _csv
+import io as _io
+from datetime import datetime, timezone
 from pathlib import Path
+
+import httpx
 
 from obdb.agent.state import StateLicenseRecord, StepError
 
-_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "co_license_hit.json"
+_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "co_license_hit.csv"
+_SOURCE_URL = (
+    "https://data.colorado.gov/resource/ier5-5ms2.csv"
+    "?$where=license_type%20LIKE%20'%25Manufacturer%20(brewery)%25'"
+    "&$limit=200"
+    "&$select=licensee_name,doing_business_as,license_number,license_type,"
+    "expiration,street_address,city,state,zip"
+)
+_STEP_ID = "co_license_lookup"
 
 
-def _to_record(r: dict) -> StateLicenseRecord:
-    try:
-        return StateLicenseRecord(
-            id=r["id"],
-            name=r["name"],
-            license_status=r.get("license_status"),
-            address=r.get("address"),
-            city=r.get("city"),
-            state_code=r["state_code"],
-            source_url=r["source_url"],
-            fetched_at=r["fetched_at"],
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse(raw: bytes) -> list[StateLicenseRecord]:
+    reader = _csv.DictReader(_io.StringIO(raw.decode("utf-8")))
+    records = []
+    for row in reader:
+        records.append(
+            StateLicenseRecord(
+                id=row["license_number"],
+                name=row.get("doing_business_as") or row["licensee_name"],
+                license_status=row.get("license_type"),
+                address=row.get("street_address") or None,
+                city=row.get("city") or None,
+                state_code=row.get("state") or "CO",
+                source_url="https://data.colorado.gov/resource/ier5-5ms2",
+                fetched_at=_now(),
+            )
         )
-    except KeyError as exc:
-        raise exc
+    return records
 
 
 class COLicenseAdapter:
-    """CO SBG license adapter — v0.1 uses static fixture; live HTTP deferred."""
+    """CO SBG license adapter. Default: CSV fixture. Live: Socrata open data API."""
 
     state_code = "CO"
     country_code = "US"
 
-    def fetch_bulk(self) -> list[StateLicenseRecord] | StepError:
+    def fetch_bulk(self, *, live: bool = False) -> list[StateLicenseRecord] | StepError:
+        if live:
+            try:
+                resp = httpx.get(_SOURCE_URL, timeout=15.0, follow_redirects=True)
+                resp.raise_for_status()
+                _FIXTURE.write_bytes(resp.content)
+            except Exception as exc:
+                return StepError(step_id=_STEP_ID, message=str(exc), source=_SOURCE_URL)
         try:
-            raw_list = _json.loads(_FIXTURE.read_text())
-            return [_to_record(r) for r in raw_list]
+            return _parse(_FIXTURE.read_bytes())
         except Exception as exc:
-            return StepError(step_id="co_license_lookup", message=str(exc), source=str(_FIXTURE))
+            return StepError(step_id=_STEP_ID, message=str(exc), source=str(_FIXTURE))
 
     def lookup_one(self, name: str, city: str) -> list[StateLicenseRecord] | StepError:
         result = self.fetch_bulk()
