@@ -1,4 +1,4 @@
-name: Evals
+name: evals
 
 on:
   push:

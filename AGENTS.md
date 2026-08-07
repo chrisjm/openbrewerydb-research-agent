@@ -19,9 +19,9 @@ gh pr create --base main --title "feat(<story-key>): <story title>" \
 ```
 
 Required CI checks run automatically on every PR:
-- `ci/unit-tests` — ruff + pytest
-- `evals/eval-suite-pass` — placeholder until eval suite is wired
-- `security/secret-scan` — gitleaks
+- `ci / unit-tests` — ruff + pytest
+- `evals / eval-suite-pass` — placeholder until eval suite is wired
+- `security / secret-scan` — gitleaks
 
 ## TDD discipline
 
