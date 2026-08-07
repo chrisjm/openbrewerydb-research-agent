@@ -1,0 +1,22 @@
+[
+  {
+    "id": "TX-11111",
+    "name": "Saint Arnold Brewing Company",
+    "license_status": "active",
+    "address": "2000 Lyons Ave",
+    "city": "Houston",
+    "state_code": "TX",
+    "source_url": "https://www.tabc.texas.gov/",
+    "fetched_at": "2026-08-06T00:00:00Z"
+  },
+  {
+    "id": "TX-22222",
+    "name": "Karbach Brewing Co",
+    "license_status": "active",
+    "address": "2032 Karbach St",
+    "city": "Houston",
+    "state_code": "TX",
+    "source_url": "https://www.tabc.texas.gov/",
+    "fetched_at": "2026-08-06T00:00:00Z"
+  }
+]
