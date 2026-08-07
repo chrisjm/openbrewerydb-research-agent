@@ -1,0 +1,19 @@
+name: evals
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  eval-suite-pass:
+    name: eval-suite-pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ponytail: placeholder — replace with real eval runner when eval suite exists
+      - name: Eval suite (placeholder)
+        run: echo "No eval suite yet — passes by default"
