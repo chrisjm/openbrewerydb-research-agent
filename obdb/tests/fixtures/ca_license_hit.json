@@ -1,0 +1,22 @@
+[
+  {
+    "id": "CA-12345",
+    "name": "Anchor Brewing Company",
+    "license_status": "active",
+    "address": "1705 Mariposa St",
+    "city": "San Francisco",
+    "state_code": "CA",
+    "source_url": "https://www.abc.ca.gov/",
+    "fetched_at": "2026-08-06T00:00:00Z"
+  },
+  {
+    "id": "CA-99999",
+    "name": "Lost Coast Brewery",
+    "license_status": "inactive",
+    "address": "617 4th St",
+    "city": "Eureka",
+    "state_code": "CA",
+    "source_url": "https://www.abc.ca.gov/",
+    "fetched_at": "2026-08-06T00:00:00Z"
+  }
+]

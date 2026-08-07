@@ -20,3 +20,14 @@ class StepError(BaseModel, frozen=True):
     step_id: str
     message: str
     source: str | None = None
+
+
+class StateLicenseRecord(BaseModel, frozen=True):
+    id: str
+    name: str
+    license_status: str | None = None
+    address: str | None = None
+    city: str | None = None
+    state_code: str
+    source_url: str
+    fetched_at: str
