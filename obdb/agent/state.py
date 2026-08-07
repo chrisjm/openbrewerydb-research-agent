@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -31,3 +33,11 @@ class StateLicenseRecord(BaseModel, frozen=True):
     state_code: str
     source_url: str
     fetched_at: str
+
+
+class WebsiteSignal(BaseModel, frozen=True):
+    signal: Literal["active", "redirect", "404", "closed_keyword"]
+    final_url: str
+    status_code: int
+    matched_phrase: str | None = None
+    source_url: str
