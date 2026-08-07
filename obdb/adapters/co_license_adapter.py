@@ -26,6 +26,7 @@ class COLicenseAdapter:
     """CO SBG license adapter — v0.1 uses static fixture; live HTTP deferred."""
 
     state_code = "CO"
+    country_code = "US"
 
     def fetch_bulk(self) -> list[StateLicenseRecord] | StepError:
         try:

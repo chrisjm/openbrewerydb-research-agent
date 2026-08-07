@@ -28,6 +28,11 @@ def test_adapter_state_code(adapter_cls, expected_code):
     assert adapter_cls.state_code == expected_code
 
 
+@pytest.mark.parametrize("adapter_cls", [CALicenseAdapter, COLicenseAdapter, TXLicenseAdapter])
+def test_adapter_country_code_defaults_us(adapter_cls):
+    assert adapter_cls.country_code == "US"
+
+
 # ---------------------------------------------------------------------------
 # Happy-path: fetch_bulk returns StateLicenseRecord list
 # ---------------------------------------------------------------------------

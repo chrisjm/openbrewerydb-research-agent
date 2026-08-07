@@ -26,6 +26,7 @@ class CALicenseAdapter:
     """CA ABC license adapter — v0.1 uses static fixture; live HTTP deferred."""
 
     state_code = "CA"
+    country_code = "US"
 
     def fetch_bulk(self) -> list[StateLicenseRecord] | StepError:
         try:

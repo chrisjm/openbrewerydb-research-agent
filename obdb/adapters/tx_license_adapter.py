@@ -26,6 +26,7 @@ class TXLicenseAdapter:
     """TX TABC license adapter — v0.1 uses static fixture; live HTTP deferred."""
 
     state_code = "TX"
+    country_code = "US"
 
     def fetch_bulk(self) -> list[StateLicenseRecord] | StepError:
         try:
