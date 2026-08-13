@@ -36,11 +36,10 @@ Required CI checks run automatically on every PR:
 |---|---|
 | Sync dependencies | `uv sync --extra dev` |
 | Run all tests | `uv run pytest obdb/tests/ -v` |
-| Run single test file | `uv run pytest obdb/tests/test_parse.py -v` |
+| Run single test | `uv run pytest obdb/tests/test_orchestrator.py -v` |
 | Lint (check) | `uv run ruff check obdb/` |
 | Format (check) | `uv run ruff format --check obdb/` |
 | Format (apply) | `uv run ruff format obdb/` |
-| Run CLI | `uv run python -m obdb.agent.cli` |
 | Create PR | `gh pr create --base main` |
 
 ## Scope discipline
