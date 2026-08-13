@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from obdb.agent.state import BreweryRunState, StepError, StepOutcome
+from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
 
 
 class BreweryRunOrchestrator:
@@ -21,9 +22,14 @@ class BreweryRunOrchestrator:
         self._state_license_adapter = state_license_adapter
         self._website_adapter = website_adapter
         self._renderer = renderer
-        self._score_step = score_step or (lambda state: {"score": 1.0, "status": "ok"})
+        self._score_step = score_step or (lambda state: compute_confidence(state))
         self._diff_step = diff_step or (lambda state: {"diff": [], "status": "ok"})
-        self._gate_step = gate_step or (lambda state: {"gate": "pass", "status": "ok"})
+        self._gate_step = gate_step or (
+            lambda state: evaluate_gate(
+                self._score_step(state)["score"],
+                threshold=DEFAULT_CONFIDENCE_THRESHOLD,
+            )
+        )
 
     def run(self, name: str, location: str) -> BreweryRunState:
         state = BreweryRunState(target_name=name, target_location=location)
