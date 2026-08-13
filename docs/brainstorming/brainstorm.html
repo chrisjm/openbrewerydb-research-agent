@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBDB Research Agent MVP — Brainstorm Keepsake</title>
+<style>
+  /* ─── Reset & Base ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amber:    #E8A830;
+    --gold:     #F2C94C;
+    --copper:   #B5651D;
+    --foam:     #FFF8E7;
+    --stout:    #1A1008;
+    --dark:     #0D0804;
+    --malt:     #3D1C02;
+    --hops:     #4A7C59;
+    --hops-lt:  #7DB58A;
+    --lab:      #00C4A7;
+    --lab-dk:   #007A68;
+    --pipeline: #5B8EE0;
+    --pip-lt:   #A8C4F8;
+    --accent:   #E85D30;
+    --text:     #F0E6D3;
+    --text-dim: #9A8672;
+    --card-bg:  rgba(61,28,2,0.55);
+    --border:   rgba(232,168,48,0.25);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: var(--dark);
+    color: var(--text);
+    line-height: 1.65;
+    overflow-x: hidden;
+  }
+
+  /* ─── Animated grain texture overlay ───────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    animation: grain 0.5s steps(2) infinite;
+  }
+  @keyframes grain {
+    0%, 100% { transform: translate(0,0); }
+    25%       { transform: translate(-1px, 1px); }
+    50%       { transform: translate(1px, -1px); }
+    75%       { transform: translate(-1px, -1px); }
+  }
+
+  /* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--stout); }
+  ::-webkit-scrollbar-thumb { background: var(--amber); border-radius: 3px; }
+
+  /* ─── Typography ────────────────────────────────────────────────────────── */
+  h1, h2, h3, h4 { font-family: 'Georgia', serif; font-weight: normal; }
+
+  .mono { font-family: 'Courier New', monospace; }
+
+  /* ─── Layout Wrappers ────────────────────────────────────────────────────── */
+  .page { position: relative; z-index: 1; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  section { padding: 5rem 0; }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     HERO
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%,
+      rgba(61,28,2,0.9) 0%,
+      rgba(26,16,8,0.97) 60%,
+      var(--dark) 100%);
+    overflow: hidden;
+  }
+
+  /* Animated hop vines */
+  .hop-svg {
+    position: absolute;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+  .hop-svg.left  { left: -60px; top: 10%; width: 280px; animation: sway 8s ease-in-out infinite; }
+  .hop-svg.right { right: -60px; bottom: 10%; width: 280px; animation: sway 9s ease-in-out infinite reverse; }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-3deg); }
+    50%       { transform: rotate(3deg); }
+  }
+
+  /* Bubble field */
+  .bubbles {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .bubble {
+    position: absolute;
+    bottom: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.3), rgba(232,168,48,0.06));
+    border: 1px solid rgba(232,168,48,0.2);
+    animation: rise linear infinite;
+  }
+  @keyframes rise {
+    to { transform: translateY(-110vh); opacity: 0; }
+  }
+
+  .hero-inner { position: relative; z-index: 2; }
+
+  .hero-eyebrow {
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 1.5rem;
+    opacity: 0.85;
+  }
+
+  .hero-title {
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    line-height: 1.15;
+    color: var(--foam);
+    margin-bottom: 0.5rem;
+  }
+  .hero-title span { color: var(--amber); }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--text-dim);
+    margin-bottom: 2.5rem;
+    font-style: italic;
+  }
+
+  .hero-meta {
+    display: inline-flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .hero-meta-item {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  .hero-meta-item strong { color: var(--amber); }
+
+  .hero-divider {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    margin: 2.5rem auto;
+  }
+
+  .hero-tagline {
+    font-size: 1rem;
+    color: var(--text-dim);
+    max-width: 500px;
+    margin: 0 auto;
+    font-style: italic;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TECHNIQUE LABEL BADGES
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .technique-badge {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.9rem;
+    border-radius: 2px;
+    margin-bottom: 1.2rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SECTION 1 — QUANTUM TUNNELING  (fermentation lab aesthetic)
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .qt-section {
+    background: linear-gradient(180deg,
+      var(--dark) 0%,
+      rgba(0,196,167,0.05) 30%,
+      rgba(0,122,104,0.08) 70%,
+      var(--dark) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .qt-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0, transparent 59px,
+        rgba(0,196,167,0.04) 59px, rgba(0,196,167,0.04) 60px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent 0, transparent 59px,
+        rgba(0,196,167,0.04) 59px, rgba(0,196,167,0.04) 60px
+      );
+    pointer-events: none;
+  }
+
+  .qt-section .technique-badge {
+    background: rgba(0,196,167,0.12);
+    border: 1px solid rgba(0,196,167,0.35);
+    color: var(--lab);
+  }
+
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    max-width: 600px;
+    margin-bottom: 3rem;
+    font-style: italic;
+  }
+
+  /* Fermenter readout cards */
+  .qt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .qt-card {
+    background: rgba(0,30,26,0.7);
+    border: 1px solid rgba(0,196,167,0.2);
+    border-radius: 6px;
+    padding: 1.4rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .qt-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(0,196,167,0.5);
+  }
+  .qt-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lab), transparent);
+  }
+
+  .qt-card-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.7rem;
+    display: block;
+  }
+
+  .qt-card-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--lab);
+    margin-bottom: 0.4rem;
+  }
+
+  .qt-card h4 {
+    font-size: 1rem;
+    color: var(--foam);
+    margin-bottom: 0.5rem;
+  }
+
+  .qt-card p {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* Pipeline diagram */
+  .pipeline-diagram {
+    background: rgba(0,20,18,0.8);
+    border: 1px solid rgba(0,196,167,0.15);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-top: 2.5rem;
+    overflow-x: auto;
+  }
+
+  .pipeline-title {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--lab);
+    margin-bottom: 1.5rem;
+    opacity: 0.7;
+  }
+
+  .pipeline-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: nowrap;
+    min-width: 700px;
+  }
+
+  .pipeline-step {
+    flex-shrink: 0;
+    background: rgba(0,50,44,0.8);
+    border: 1px solid rgba(0,196,167,0.3);
+    border-radius: 4px;
+    padding: 0.6rem 0.9rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: var(--lab);
+    text-align: center;
+    line-height: 1.3;
+    min-width: 90px;
+    position: relative;
+  }
+  .pipeline-step.judgment {
+    background: rgba(90,50,0,0.7);
+    border-color: rgba(232,168,48,0.4);
+    color: var(--gold);
+    transform: rotate(0deg);
+  }
+  .pipeline-step.judgment::before,
+  .pipeline-step.judgment::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: -7px;
+    width: 0; height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 7px solid rgba(232,168,48,0.4);
+    transform: translateY(-50%);
+  }
+  .pipeline-step.judgment::after {
+    left: auto; right: -7px;
+    border-right: none;
+    border-left: 7px solid rgba(232,168,48,0.4);
+  }
+
+  .pipeline-arrow {
+    color: rgba(0,196,167,0.5);
+    font-size: 1.1rem;
+    padding: 0 0.3rem;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SECTION 2 — JOB TO BE DONE  (craft beer order / recipe card aesthetic)
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .jtbd-section {
+    background: linear-gradient(180deg,
+      var(--dark) 0%,
+      rgba(61,28,2,0.3) 30%,
+      rgba(90,40,5,0.2) 70%,
+      var(--dark) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle hops watermark */
+  .jtbd-section::after {
+    content: '⬡';
+    position: absolute;
+    right: -100px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 600px;
+    color: rgba(74,124,89,0.04);
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  .jtbd-section .technique-badge {
+    background: rgba(232,168,48,0.1);
+    border: 1px solid rgba(232,168,48,0.35);
+    color: var(--amber);
+  }
+
+  /* Big job statement */
+  .job-statement {
+    background: linear-gradient(135deg, rgba(61,28,2,0.9), rgba(90,50,5,0.7));
+    border-left: 4px solid var(--amber);
+    border-radius: 0 8px 8px 0;
+    padding: 2rem 2.5rem;
+    margin: 2rem 0 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .job-statement::before {
+    content: '"';
+    position: absolute;
+    top: -0.5rem; left: 1rem;
+    font-size: 8rem;
+    color: rgba(232,168,48,0.08);
+    line-height: 1;
+    font-family: Georgia, serif;
+  }
+  .job-statement .label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.7rem;
+    opacity: 0.8;
+  }
+  .job-statement p {
+    font-size: 1.25rem;
+    color: var(--foam);
+    font-style: italic;
+    line-height: 1.6;
+    position: relative; z-index: 1;
+  }
+  .job-statement p em { color: var(--amber); font-style: normal; }
+
+  /* North star vision box */
+  .northstar {
+    background: radial-gradient(ellipse at center, rgba(74,124,89,0.2) 0%, rgba(0,0,0,0) 70%);
+    border: 1px solid rgba(74,124,89,0.3);
+    border-radius: 12px;
+    padding: 2.5rem;
+    text-align: center;
+    margin: 3rem 0;
+    position: relative;
+  }
+  .northstar::before {
+    content: '★';
+    position: absolute;
+    top: -1.1rem; left: 50%;
+    transform: translateX(-50%);
+    font-size: 2rem;
+    color: var(--hops);
+    background: var(--dark);
+    padding: 0 0.5rem;
+    line-height: 1.4;
+  }
+  .northstar-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--hops-lt);
+    margin-bottom: 1rem;
+    opacity: 0.9;
+  }
+  .northstar h3 {
+    font-size: 1.4rem;
+    color: var(--foam);
+    margin-bottom: 1rem;
+    font-style: italic;
+  }
+  .northstar p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .northstar em { color: var(--hops-lt); font-style: normal; }
+
+  /* Recipe card grid */
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+  @media (max-width: 600px) { .recipe-grid { grid-template-columns: 1fr; } }
+
+  .recipe-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  .recipe-card .label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.5rem;
+    opacity: 0.75;
+  }
+  .recipe-card h4 {
+    font-size: 1rem;
+    color: var(--foam);
+    margin-bottom: 0.6rem;
+  }
+  .recipe-card p { font-size: 0.85rem; color: var(--text-dim); }
+  .recipe-card .insight { color: var(--amber); font-style: italic; }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SECTION 3 — BACKCASTING  (timeline / pipeline working backwards)
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .bc-section {
+    background: linear-gradient(180deg,
+      var(--dark) 0%,
+      rgba(91,142,224,0.06) 30%,
+      rgba(91,142,224,0.1) 60%,
+      var(--dark) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bc-section .technique-badge {
+    background: rgba(91,142,224,0.1);
+    border: 1px solid rgba(91,142,224,0.4);
+    color: var(--pip-lt);
+  }
+
+  /* Vertical timeline */
+  .timeline {
+    position: relative;
+    padding-left: 3rem;
+    margin-top: 2.5rem;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.85rem;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg,
+      var(--pipeline) 0%,
+      rgba(91,142,224,0.2) 80%,
+      transparent 100%);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 2.5rem;
+    padding-left: 1.5rem;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -2.15rem;
+    top: 0.6rem;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--pipeline);
+    box-shadow: 0 0 12px rgba(91,142,224,0.6);
+  }
+  .timeline-item.v1::before { background: var(--amber); box-shadow: 0 0 12px rgba(232,168,48,0.6); }
+  .timeline-item.future::before { background: var(--hops); box-shadow: 0 0 12px rgba(74,124,89,0.6); }
+
+  .timeline-phase {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .timeline-item .pipeline { color: var(--pip-lt); }
+  .timeline-item.v1 .v1-label { color: var(--amber); }
+  .timeline-item.future .future-label { color: var(--hops-lt); }
+
+  .timeline-item h4 {
+    font-size: 1.05rem;
+    color: var(--foam);
+    margin-bottom: 0.5rem;
+  }
+  .timeline-item ul {
+    list-style: none;
+    padding: 0;
+  }
+  .timeline-item li {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    padding: 0.2rem 0;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .timeline-item li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--pipeline);
+    opacity: 0.6;
+  }
+  .timeline-item.v1 li::before { color: var(--amber); }
+  .timeline-item.future li::before { color: var(--hops); }
+
+  /* Key insight callout in backcasting */
+  .insight-box {
+    background: rgba(91,142,224,0.07);
+    border: 1px solid rgba(91,142,224,0.2);
+    border-left: 3px solid var(--pipeline);
+    border-radius: 0 6px 6px 0;
+    padding: 1.2rem 1.5rem;
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--pip-lt);
+    font-style: italic;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SECTION 4 — SYNTHESIS  (the climax)
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .synthesis-section {
+    background: linear-gradient(180deg,
+      var(--dark) 0%,
+      rgba(61,28,2,0.6) 20%,
+      rgba(90,50,10,0.4) 50%,
+      rgba(61,28,2,0.6) 80%,
+      var(--dark) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .synthesis-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 50% at 50% 50%, rgba(232,168,48,0.05) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .synthesis-title {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .synthesis-title .technique-badge {
+    background: rgba(232,93,48,0.1);
+    border: 1px solid rgba(232,93,48,0.35);
+    color: var(--accent);
+  }
+  .synthesis-title h2 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    color: var(--amber);
+  }
+
+  /* Connection web */
+  .connections {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: rgba(232,168,48,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 3rem 0;
+  }
+  @media (max-width: 650px) { .connections { grid-template-columns: 1fr; } }
+
+  .connection-node {
+    background: rgba(26,16,8,0.9);
+    padding: 1.8rem;
+    text-align: center;
+    position: relative;
+  }
+  .connection-node:hover { background: rgba(45,25,8,0.9); }
+
+  .conn-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.8rem;
+  }
+  .conn-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+  .connection-node h4 { font-size: 0.95rem; color: var(--foam); margin-bottom: 0.5rem; }
+  .connection-node p { font-size: 0.8rem; color: var(--text-dim); }
+
+  /* Key insights list */
+  .key-insights {
+    margin: 2rem 0;
+  }
+  .key-insights h3 {
+    font-size: 1.1rem;
+    color: var(--amber);
+    margin-bottom: 1.2rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  .insight-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(232,168,48,0.08);
+  }
+  .insight-row:last-child { border-bottom: none; }
+  .insight-number {
+    flex-shrink: 0;
+    width: 2rem; height: 2rem;
+    background: rgba(232,168,48,0.1);
+    border: 1px solid rgba(232,168,48,0.25);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--amber);
+  }
+  .insight-text { font-size: 0.9rem; color: var(--text); }
+  .insight-text strong { color: var(--amber); }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SECTION 5 — MOSCOW
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .moscow-section {
+    background: var(--dark);
+    padding-bottom: 6rem;
+  }
+
+  .moscow-title {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .moscow-title .technique-badge {
+    background: rgba(74,124,89,0.1);
+    border: 1px solid rgba(74,124,89,0.3);
+    color: var(--hops-lt);
+  }
+  .moscow-title h2 {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    color: var(--foam);
+  }
+  .moscow-subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-bottom: 3rem;
+  }
+
+  /* MoSCoW table */
+  .moscow-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 650px) { .moscow-grid { grid-template-columns: 1fr; } }
+
+  .moscow-bucket {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid;
+  }
+  .moscow-bucket.must  { border-color: rgba(232,93,48,0.35); }
+  .moscow-bucket.should { border-color: rgba(232,168,48,0.35); }
+  .moscow-bucket.could  { border-color: rgba(91,142,224,0.35); }
+  .moscow-bucket.wont   { border-color: rgba(100,100,100,0.25); }
+
+  .bucket-header {
+    padding: 0.9rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .must .bucket-header   { background: rgba(232,93,48,0.12); }
+  .should .bucket-header { background: rgba(232,168,48,0.12); }
+  .could .bucket-header  { background: rgba(91,142,224,0.12); }
+  .wont .bucket-header   { background: rgba(60,60,60,0.12); }
+
+  .bucket-letter {
+    font-size: 1.8rem;
+    font-weight: bold;
+    line-height: 1;
+    font-family: Georgia, serif;
+  }
+  .must .bucket-letter   { color: var(--accent); }
+  .should .bucket-letter { color: var(--amber); }
+  .could .bucket-letter  { color: var(--pip-lt); }
+  .wont .bucket-letter   { color: #666; }
+
+  .bucket-name {
+    font-size: 0.8rem;
+    line-height: 1.3;
+  }
+  .must .bucket-name   { color: var(--accent); }
+  .should .bucket-name { color: var(--amber); }
+  .could .bucket-name  { color: var(--pip-lt); }
+  .wont .bucket-name   { color: #888; }
+
+  .bucket-name .big { display: block; font-size: 1rem; }
+
+  .bucket-items {
+    padding: 1rem 1.2rem;
+    list-style: none;
+  }
+  .bucket-items li {
+    font-size: 0.82rem;
+    padding: 0.3rem 0 0.3rem 1.2rem;
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .bucket-items li:last-child { border-bottom: none; }
+  .bucket-items li::before {
+    content: '✓';
+    position: absolute; left: 0;
+    font-size: 0.7rem;
+  }
+  .must   .bucket-items li { color: #ddd; }
+  .must   .bucket-items li::before { color: var(--accent); }
+  .should .bucket-items li { color: #ccc; }
+  .should .bucket-items li::before { color: var(--amber); }
+  .could  .bucket-items li { color: #bbb; }
+  .could  .bucket-items li::before { color: var(--pip-lt); }
+  .wont   .bucket-items li { color: #666; text-decoration: line-through; text-decoration-color: #444; }
+  .wont   .bucket-items li::before { content: '✗'; color: #555; }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     FOOTER NORTH STAR
+  ═══════════════════════════════════════════════════════════════════════════ */
+  .northstar-final {
+    background: linear-gradient(180deg, var(--dark), var(--stout));
+    padding: 6rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .northstar-final::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% 0%,
+      rgba(74,124,89,0.15) 0%,
+      transparent 70%);
+    pointer-events: none;
+  }
+
+  .star-glow {
+    font-size: 3.5rem;
+    display: block;
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 0 20px rgba(74,124,89,0.8));
+    animation: starPulse 3s ease-in-out infinite;
+  }
+  @keyframes starPulse {
+    0%,100% { filter: drop-shadow(0 0 20px rgba(74,124,89,0.8)); }
+    50%      { filter: drop-shadow(0 0 40px rgba(74,124,89,1)) drop-shadow(0 0 60px rgba(74,124,89,0.4)); }
+  }
+
+  .northstar-final h2 {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    color: var(--foam);
+    max-width: 700px;
+    margin: 0 auto 1.2rem;
+    font-style: italic;
+  }
+  .northstar-final h2 em { color: var(--hops-lt); font-style: normal; }
+
+  .northstar-final p {
+    color: var(--text-dim);
+    max-width: 540px;
+    margin: 0 auto 2rem;
+    font-size: 0.95rem;
+  }
+
+  .northstar-final .meta {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(100,90,80,0.6);
+    margin-top: 3rem;
+  }
+
+  /* ─── Utility ────────────────────────────────────────────────────────────── */
+  .text-center { text-align: center; }
+  .mb1 { margin-bottom: 1rem; }
+  .mb2 { margin-bottom: 2rem; }
+  .mt1 { margin-top: 1rem; }
+  .mt2 { margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════════════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════════════════ -->
+<section class="hero">
+
+  <!-- Hop vine SVGs -->
+  <svg class="hop-svg left" viewBox="0 0 200 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M100,600 C80,500 120,450 90,380 C60,310 130,260 100,180 C70,100 110,50 100,0" stroke="#4A7C59" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <ellipse cx="60" cy="200" rx="28" ry="20" fill="#4A7C59" transform="rotate(-30 60 200)" opacity="0.7"/>
+    <ellipse cx="130" cy="310" rx="28" ry="20" fill="#4A7C59" transform="rotate(25 130 310)" opacity="0.6"/>
+    <ellipse cx="70" cy="420" rx="24" ry="17" fill="#4A7C59" transform="rotate(-20 70 420)" opacity="0.5"/>
+    <circle cx="60" cy="200" r="5" fill="#7DB58A" opacity="0.5"/>
+    <circle cx="130" cy="310" r="5" fill="#7DB58A" opacity="0.5"/>
+    <circle cx="70" cy="420" r="5" fill="#7DB58A" opacity="0.5"/>
+  </svg>
+  <svg class="hop-svg right" viewBox="0 0 200 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M100,0 C120,100 80,150 110,220 C140,290 70,340 100,420 C130,500 90,550 100,600" stroke="#4A7C59" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <ellipse cx="140" cy="180" rx="28" ry="20" fill="#4A7C59" transform="rotate(30 140 180)" opacity="0.7"/>
+    <ellipse cx="70" cy="290" rx="28" ry="20" fill="#4A7C59" transform="rotate(-25 70 290)" opacity="0.6"/>
+    <ellipse cx="130" cy="400" rx="24" ry="17" fill="#4A7C59" transform="rotate(20 130 400)" opacity="0.5"/>
+    <circle cx="140" cy="180" r="5" fill="#7DB58A" opacity="0.5"/>
+    <circle cx="70" cy="290" r="5" fill="#7DB58A" opacity="0.5"/>
+    <circle cx="130" cy="400" r="5" fill="#7DB58A" opacity="0.5"/>
+  </svg>
+
+  <!-- Bubbles -->
+  <div class="bubbles" id="bubbles" aria-hidden="true"></div>
+
+  <div class="hero-inner container">
+    <p class="hero-eyebrow">Brainstorm Keepsake &nbsp;·&nbsp; 2026-08-06</p>
+    <h1 class="hero-title">
+      OBDB <span>Research Agent</span><br>MVP v0.1
+    </h1>
+    <p class="hero-subtitle">A deterministic pipeline for brewery data quality</p>
+    <div class="hero-divider"></div>
+    <div class="hero-meta">
+      <span class="hero-meta-item"><strong>Mode:</strong> Creative Partner</span>
+      <span class="hero-meta-item"><strong>Techniques:</strong> Quantum Tunneling · JTBD · Backcasting</span>
+      <span class="hero-meta-item"><strong>Status:</strong> Complete</span>
+    </div>
+    <div class="hero-divider"></div>
+    <p class="hero-tagline">One brewery. One run. Evidence first. Human in the loop.</p>
+  </div>
+
+  <p class="scroll-hint">scroll to explore ↓</p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TECHNIQUE 1: QUANTUM TUNNELING
+════════════════════════════════════════════════════════════════ -->
+<section class="qt-section">
+<div class="container">
+
+  <span class="technique-badge">✦ Technique 1 of 3 — Quantum Tunneling</span>
+  <h2 class="section-title" style="color: var(--lab);">Tunneling Through<br>Conventional Pipelines</h2>
+  <p class="section-desc">
+    Ideas that bypass the obvious path — each a wormhole to a better architecture,
+    discovered by asking "what if we ignored the constraints first?"
+  </p>
+
+  <div class="qt-grid">
+
+    <div class="qt-card">
+      <span class="qt-card-icon">⚖️</span>
+      <p class="qt-card-label">Signal Engine</p>
+      <h4>Typed Diff with Confidence Scores</h4>
+      <p>A structured comparator between the existing OBDB record and the candidate update — every field change carries a confidence float, not just a yes/no.</p>
+    </div>
+
+    <div class="qt-card">
+      <span class="qt-card-icon">🔗</span>
+      <p class="qt-card-label">Provenance Chain</p>
+      <h4>Evidence Citations per Field</h4>
+      <p>Every proposed change cites its source URL and the exact extracted text snippet. Blame is always traceable to an atom of evidence.</p>
+    </div>
+
+    <div class="qt-card">
+      <span class="qt-card-icon">🏠</span>
+      <p class="qt-card-label">Ground Truth Signal</p>
+      <h4>Official Website as Closure Oracle</h4>
+      <p>If the brewery's own homepage 404s or contains "permanently closed" language, that's high-confidence closure evidence — no LLM required in v0.1.</p>
+    </div>
+
+    <div class="qt-card">
+      <span class="qt-card-icon">🏛️</span>
+      <p class="qt-card-label">Authoritative Source</p>
+      <h4>State &amp; Federal Licensing APIs</h4>
+      <p>CA ABC, TTB, and equivalent state liquor control boards hold ground-truth licensing data. Structured, deterministic, legally authoritative.</p>
+    </div>
+
+    <div class="qt-card">
+      <span class="qt-card-icon">💾</span>
+      <p class="qt-card-label">Cache Strategy</p>
+      <h4>Bulk-Pull, Reuse per Lookup</h4>
+      <p>Pull and cache a full state/city dataset once per TTL window. Every subsequent per-brewery lookup becomes a local read — API costs collapse.</p>
+    </div>
+
+    <div class="qt-card">
+      <span class="qt-card-icon">🐝</span>
+      <p class="qt-card-label">Scale Design</p>
+      <h4>One Brewery, Designed to Swarm</h4>
+      <p>Each agent run handles exactly one brewery. Self-contained, auditable, composable. Horizontal scale is an emergent property, not a feature to build.</p>
+    </div>
+
+  </div>
+
+  <!-- Pipeline diagram -->
+  <div class="pipeline-diagram">
+    <p class="pipeline-title">▸ v0.1 Pipeline Sketch</p>
+    <div class="pipeline-steps">
+      <div class="pipeline-step">name +<br>location</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">OBDB<br>lookup</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">state API<br>pull + cache</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step judgment">⟐ judgment<br>threshold?</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">website<br>HTTP check</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step judgment">⟐ confidence<br>gate?</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">diff +<br>evidence</div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step" style="border-color:rgba(232,168,48,0.4); color: var(--gold);">CSV output<br>+ copy btn</div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TECHNIQUE 2: JOB TO BE DONE
+════════════════════════════════════════════════════════════════ -->
+<section class="jtbd-section">
+<div class="container">
+
+  <span class="technique-badge">✦ Technique 2 of 3 — Job to Be Done</span>
+  <h2 class="section-title" style="color: var(--amber);">The Job the User<br>Is Hiring This Agent For</h2>
+  <p class="section-desc">
+    Strip away the technology. What frustration is this tool actually hired to resolve?
+    One sentence — the rest is implementation detail.
+  </p>
+
+  <!-- Core job statement -->
+  <div class="job-statement">
+    <p class="label">Core JTBD Statement</p>
+    <p>
+      "I see <em>something wrong on OBDB</em> → I want it fixed <em>without 10 minutes of manual tab-hopping</em>"
+    </p>
+  </div>
+
+  <!-- North star vision (lives here, echoed in footer) -->
+  <div class="northstar">
+    <p class="northstar-label">North-Star Vision</p>
+    <h3>
+      A "Research" button on every brewery's OBDB page<br>
+      → agent fires → <em>GitHub PR with evidence lands</em>
+    </h3>
+    <p>
+      The v0.1 CSV diff with copy button is the <em>interface fidelity prototype</em>
+      of that button. Every local UX decision should feel like that future press.
+    </p>
+  </div>
+
+  <!-- Supporting recipe cards -->
+  <div class="recipe-grid">
+
+    <div class="recipe-card">
+      <p class="label">Fear to Neutralize</p>
+      <h4>The Low-Quality PR Flood</h4>
+      <p>The maintainer's biggest risk: a swarm of poorly-evidenced PRs that pollute the dataset and overwhelm the review queue. The confidence gate and evidence-only display below threshold are the direct antidote.</p>
+    </div>
+
+    <div class="recipe-card">
+      <p class="label">Surprise Upside</p>
+      <h4>Quality Compounds, Community Follows</h4>
+      <p class="insight">Dataset quality improves dramatically → community engagement snowballs → more contributors → richer data → better agent → repeat. A quality flywheel, not a one-shot fix.</p>
+    </div>
+
+    <div class="recipe-card">
+      <p class="label">Future Scope Signal</p>
+      <h4>Web Search Serves Two Jobs</h4>
+      <p>When web search lands in v0.2, it serves dual purpose: <em>verify existing fields</em> AND <em>discover missing fields</em>. Both jobs in one layer — keep both in scope.</p>
+    </div>
+
+    <div class="recipe-card">
+      <p class="label">Schema Reality Check</p>
+      <h4>Closed = <code class="mono" style="color:var(--amber)">brewery_type:'closed'</code></h4>
+      <p>No dedicated status field today. SCD type 2 tags are coming. The diff engine must be designed to handle both conventions without a rewrite at schema migration time.</p>
+    </div>
+
+  </div>
+
+</div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TECHNIQUE 3: BACKCASTING
+════════════════════════════════════════════════════════════════ -->
+<section class="bc-section">
+<div class="container">
+
+  <span class="technique-badge">✦ Technique 3 of 3 — Backcasting</span>
+  <h2 class="section-title" style="color: var(--pip-lt);">Working Backwards<br>from the North Star</h2>
+  <p class="section-desc">
+    Start at the vision. Identify the last thing that must be true before it exists.
+    Repeat until you reach today's commit.
+  </p>
+
+  <div class="timeline">
+
+    <div class="timeline-item future">
+      <p class="timeline-phase future-label">★ North Star (Future)</p>
+      <h4>Per-brewery "Research" Button → Auto PR</h4>
+      <ul>
+        <li>OBDB site embeds agent trigger per listing</li>
+        <li>Agent produces a GitHub PR with full evidence chain</li>
+        <li>EIN enrichment unlocks water usage &amp; barrel production data</li>
+        <li>Premium data tier + predictive brewery health models</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <p class="timeline-phase pipeline">v0.3+ — Discovery &amp; Presentation</p>
+      <h4>HTML Reports &amp; OBDB Site Integration</h4>
+      <ul>
+        <li>Per-brewery HTML evidence reports</li>
+        <li>Auto-PR workflow (agent commits to branch)</li>
+        <li>Google Business data as supplementary signal</li>
+      </ul>
+    </div>
+
+    <div class="timeline-item">
+      <p class="timeline-phase pipeline">v0.2 — Intelligent Extraction</p>
+      <h4>Web Search + LLM Extraction Layer</h4>
+      <ul>
+        <li>Shallow web search for field verification and gap discovery</li>
+        <li>Full website NER / LLM extraction (not just HTTP check)</li>
+        <li>Deep research path for ambiguous cases</li>
+        <li>Eval harness ground-truth cases → training data for this layer</li>
+      </ul>
+      <div class="insight-box">
+        Key insight: the eval harness built in v0.1 doubles as training data for the v0.2 ML/LLM extraction layer. Build it right the first time.
+      </div>
+    </div>
+
+    <div class="timeline-item v1">
+      <p class="timeline-phase v1-label">▶ v0.1 — Deterministic Pipeline (NOW)</p>
+      <h4>OBDB + State API + Confidence Ladder + Diff Output</h4>
+      <ul>
+        <li>OBDB record lookup by name + location</li>
+        <li>State API adapters: California (CA ABC), Colorado, Texas</li>
+        <li>Bulk cache + TTL — one API pull per state window</li>
+        <li>Website HTTP status check + closure keyword scan (no LLM)</li>
+        <li>Confidence ladder → typed diff with evidence chain per field</li>
+        <li>Output gate: above threshold = CSV diff + copy button; below = evidence display only</li>
+        <li>Schema designed for SCD type 2 tag migration readiness</li>
+        <li>Adapter interface (Should) + eval harness (Should)</li>
+      </ul>
+      <div class="insight-box" style="border-color: rgba(232,168,48,0.4); background: rgba(61,28,2,0.3); color: var(--gold);">
+        Load-bearing constraint: without state API, the only deterministic source is the brewery website — which requires LLM extraction. State API is what makes v0.1 truly deterministic.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     SYNTHESIS
+════════════════════════════════════════════════════════════════ -->
+<section class="synthesis-section">
+<div class="container">
+
+  <div class="synthesis-title">
+    <span class="technique-badge">⬡ Synthesis</span>
+    <h2 class="section-title" style="color: var(--amber);">Where the Three Threads Converge</h2>
+    <p class="section-desc" style="margin: 0 auto 2rem; text-align:center;">
+      Quantum Tunneling surfaced the mechanisms. JTBD grounded the purpose.
+      Backcasting imposed the discipline. Here's what they share.
+    </p>
+  </div>
+
+  <!-- Connection nodes -->
+  <div class="connections">
+
+    <div class="connection-node">
+      <span class="conn-icon">🐝</span>
+      <p class="conn-label">From Quantum Tunneling</p>
+      <h4>Swarm = Self-Contained Unit</h4>
+      <p>One brewery per run is not a limitation — it's an architectural invariant that enables horizontal scale and clean evidence isolation.</p>
+    </div>
+
+    <div class="connection-node" style="background: rgba(40,20,5,0.95);">
+      <span class="conn-icon">🔗</span>
+      <p class="conn-label">Unifying Insight</p>
+      <h4>Swarm Design ≡ Evidence Chain</h4>
+      <p style="color: var(--amber);">They are the same idea: self-contained, auditable, composable units. The cache is what makes both architecturally cheap.</p>
+    </div>
+
+    <div class="connection-node">
+      <span class="conn-icon">🔍</span>
+      <p class="conn-label">From JTBD</p>
+      <h4>Evidence Chain = Trust</h4>
+      <p>The human-in-the-loop requirement isn't a constraint — it's the product. Evidence per field is what makes the tool trustworthy enough to merge.</p>
+    </div>
+
+  </div>
+
+  <!-- Key insight connections -->
+  <div class="key-insights">
+    <h3>// key_insight_connections</h3>
+
+    <div class="insight-row">
+      <div class="insight-number">01</div>
+      <p class="insight-text">
+        <strong>Swarm design + evidence chain are the same idea.</strong>
+        Self-contained, auditable, composable units. The cache is what makes both cheap — a single bulk pull amortizes the cost of every individual brewery query in that state window.
+      </p>
+    </div>
+
+    <div class="insight-row">
+      <div class="insight-number">02</div>
+      <p class="insight-text">
+        <strong>The eval harness doubles as training data.</strong>
+        Ground-truth test cases built for v0.1 deterministic validation become the labeled dataset for v0.2 ML/LLM extraction. Build it right the first time and you build two things at once.
+      </p>
+    </div>
+
+    <div class="insight-row">
+      <div class="insight-number">03</div>
+      <p class="insight-text">
+        <strong>North-star vision implies interface fidelity today.</strong>
+        The v0.1 local CSV diff + copy button should feel exactly like "that button" on the OBDB site. The interface prototype is not a throwaway — it is the user experience foundation.
+      </p>
+    </div>
+
+    <div class="insight-row">
+      <div class="insight-number">04</div>
+      <p class="insight-text">
+        <strong>State API is load-bearing for v0.1 determinism.</strong>
+        Without it, the only available source is the brewery website — which requires LLM extraction. That's v0.2 territory. State API is what makes the v0.1 promise of a fully deterministic pipeline real.
+      </p>
+    </div>
+
+    <div class="insight-row">
+      <div class="insight-number">05</div>
+      <p class="insight-text">
+        <strong>The confidence gate neutralizes the maintainer's core fear.</strong>
+        Below-threshold results show evidence but withhold the copy button. The human is always in the loop — not as a fallback, but as the designed happy path.
+      </p>
+    </div>
+
+  </div>
+
+</div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     MOSCOW
+════════════════════════════════════════════════════════════════ -->
+<section class="moscow-section">
+<div class="container">
+
+  <div class="moscow-title">
+    <span class="technique-badge">⬡ Quality Control Decision</span>
+    <h2>MoSCoW — Approved</h2>
+  </div>
+  <p class="moscow-subtitle">
+    The lab bench verdict: what ships in v0.1, what waits, what never enters the fermenter.
+  </p>
+
+  <div class="moscow-grid">
+
+    <!-- MUST -->
+    <div class="moscow-bucket must">
+      <div class="bucket-header">
+        <span class="bucket-letter">M</span>
+        <span class="bucket-name"><span class="big">Must Have</span>Ships in v0.1</span>
+      </div>
+      <ul class="bucket-items">
+        <li>OBDB lookup by name + location</li>
+        <li>State API adapters: CA, CO, TX</li>
+        <li>Bulk cache + TTL</li>
+        <li>Confidence ladder</li>
+        <li>Website HTTP check + closure keyword scan</li>
+        <li>Typed diff engine</li>
+        <li>Evidence chain (source URL + snippet per field)</li>
+        <li>Output gating (copy btn above threshold only)</li>
+        <li>Schema SCD type 2 readiness</li>
+      </ul>
+    </div>
+
+    <!-- SHOULD -->
+    <div class="moscow-bucket should">
+      <div class="bucket-header">
+        <span class="bucket-letter">S</span>
+        <span class="bucket-name"><span class="big">Should Have</span>High-value additions</span>
+      </div>
+      <ul class="bucket-items">
+        <li>Visible confidence scores in output</li>
+        <li>Adapter interface (pluggable state API layer)</li>
+        <li>Eval harness with ground-truth cases</li>
+      </ul>
+    </div>
+
+    <!-- COULD -->
+    <div class="moscow-bucket could">
+      <div class="bucket-header">
+        <span class="bucket-letter">C</span>
+        <span class="bucket-name"><span class="big">Could Have</span>Nice to explore</span>
+      </div>
+      <ul class="bucket-items">
+        <li>Google Business signal as supplementary source</li>
+        <li>Insufficient-evidence explanation in output</li>
+      </ul>
+    </div>
+
+    <!-- WON'T -->
+    <div class="moscow-bucket wont">
+      <div class="bucket-header">
+        <span class="bucket-letter">W</span>
+        <span class="bucket-name"><span class="big">Won't Have (v0.1)</span>Deferred</span>
+      </div>
+      <ul class="bucket-items">
+        <li>Web / shallow search layer</li>
+        <li>HTML evidence reports</li>
+        <li>Automated GitHub PR creation</li>
+        <li>EIN enrichment</li>
+        <li>OBDB site "Research" button</li>
+        <li>Full website NER / LLM extraction</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     FOOTER — NORTH STAR
+════════════════════════════════════════════════════════════════ -->
+<footer class="northstar-final">
+  <span class="star-glow">★</span>
+  <h2>
+    A "Research" button on every brewery's page →<br>
+    agent fires → <em>GitHub PR with evidence lands</em>
+  </h2>
+  <p>
+    Every line of v0.1 code is a hop in the vine that grows toward that button.
+    Build the diff engine like it's already there.
+  </p>
+  <p class="meta">
+    OBDB Research Agent MVP · Brainstorm · 2026-08-06 · mode: partner · status: complete
+  </p>
+</footer>
+
+</div><!-- /page -->
+
+<script>
+  /* Bubble generator */
+  (function() {
+    const container = document.getElementById('bubbles');
+    if (!container) return;
+    for (let i = 0; i < 30; i++) {
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      const size = 4 + Math.random() * 18;
+      b.style.cssText = [
+        'width:' + size + 'px',
+        'height:' + size + 'px',
+        'left:' + (Math.random() * 100) + '%',
+        'animation-duration:' + (8 + Math.random() * 18) + 's',
+        'animation-delay:' + (Math.random() * 12) + 's',
+        'opacity:' + (0.2 + Math.random() * 0.4)
+      ].join(';');
+      container.appendChild(b);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@
 git checkout -b feat/<story-key>   # at story start
 # ... implement, commit per task ...
 gh pr create --base main --title "feat(<story-key>): <story title>" \
-  --body "Story: _bmad-output/implementation-artifacts/<story-key>.md"
+  --body "Story: docs/specs/<spec-id>/stories/<story-key>.md"
 ```
 
 Required CI checks run automatically on every PR:
