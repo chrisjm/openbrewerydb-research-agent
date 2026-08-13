@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+WebsiteErrorCode = Literal["policy_blocked", "technical_blocked", "config_error"]
 
 
 class OBDBRecord(BaseModel, frozen=True):
@@ -22,6 +24,7 @@ class StepError(BaseModel, frozen=True):
     step_id: str
     message: str
     source: str | None = None
+    code: WebsiteErrorCode | None = None
 
 
 class StateLicenseRecord(BaseModel, frozen=True):
@@ -41,3 +44,23 @@ class WebsiteSignal(BaseModel, frozen=True):
     status_code: int
     matched_phrase: str | None = None
     source_url: str
+
+
+class StepOutcome(BaseModel, frozen=True):
+    step_id: str
+    status: Literal["ok", "error"]
+    detail: str | None = None
+
+
+class BreweryRunState(BaseModel, frozen=True):
+    target_name: str
+    target_location: str
+    obdb_record: OBDBRecord | None = None
+    state_license_records: list[StateLicenseRecord] = Field(default_factory=list)
+    website_signal: WebsiteSignal | None = None
+    confidence: dict | None = None
+    diff: dict | None = None
+    gate: dict | None = None
+    error: StepError | None = None
+    step_outcomes: list[StepOutcome] = Field(default_factory=list)
+    rendered_output: str | None = None
