@@ -32,8 +32,8 @@ def _to_record(raw: dict) -> OBDBRecord | StepError:
             country=raw.get("country"),
             website_url=raw.get("website_url"),
             phone=raw.get("phone"),
-            longitude=raw.get("longitude"),
-            latitude=raw.get("latitude"),
+            longitude=str(raw["longitude"]) if raw.get("longitude") is not None else None,
+            latitude=str(raw["latitude"]) if raw.get("latitude") is not None else None,
         )
     except KeyError as exc:
         return StepError(step_id="obdb_lookup", message=f"Malformed record missing field: {exc}")

@@ -101,6 +101,41 @@ def test_lookup_one_surfaces_step_error_on_5xx(httpx_mock):
 
 
 # ---------------------------------------------------------------------------
+# Coercion: API returns numeric lat/lon floats → OBDBRecord stores strings
+# ---------------------------------------------------------------------------
+
+
+def test_lookup_one_coerces_float_lat_lon(httpx_mock):
+    payload = [
+        {
+            "id": "jester-king-brewery-austin-tx",
+            "name": "Jester King Brewery",
+            "brewery_type": "micro",
+            "address_1": "13187 Fitzhugh Rd",
+            "city": "Austin",
+            "state_province": "Texas",
+            "postal_code": "78736",
+            "country": "United States",
+            "longitude": -98.0824692,  # float — as the live API actually returns
+            "latitude": 30.2547264,
+            "phone": "5125375100",
+            "website_url": "http://www.jesterkingbrewery.com",
+        }
+    ]
+    httpx_mock.add_response(
+        url="https://api.openbrewerydb.org/v1/breweries/search?query=Jester+King&per_page=5",
+        json=payload,
+    )
+    from obdb.adapters.obdb_api_adapter import OBDBApiAdapter
+
+    result = OBDBApiAdapter().lookup_one("Jester King", "Texas")
+
+    assert result is not None
+    assert result.longitude == "-98.0824692"
+    assert result.latitude == "30.2547264"
+
+
+# ---------------------------------------------------------------------------
 # OBDBPort protocol compliance
 # ---------------------------------------------------------------------------
 
