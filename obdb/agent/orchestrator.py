@@ -233,7 +233,7 @@ class BreweryRunOrchestrator:
         )
 
     def _render(self, state: BreweryRunState) -> BreweryRunState:
-        output = self._renderer.render(state)
+        output = self._render_output(state)
         return state.model_copy(
             update={
                 "rendered_output": output,
@@ -244,9 +244,40 @@ class BreweryRunOrchestrator:
             }
         )
 
+    def _render_output(self, state: BreweryRunState) -> str:
+        gate = state.gate or {}
+        if isinstance(gate, dict) and gate.get("gate") == "fail":
+            return self._render_evidence_only(state)
+        return self._renderer.render(state)
+
+    def _render_evidence_only(self, state: BreweryRunState) -> str:
+        lines = [
+            "Evidence-only output",
+            "",
+            f"Target: {state.target_name} in {state.target_location}",
+        ]
+        if state.obdb_record and state.obdb_record.website_url:
+            lines.append(f"Website: {state.obdb_record.website_url}")
+        if state.website_signal is not None:
+            lines.append(
+                f"Website signal: {state.website_signal.signal} "
+                f"(status {state.website_signal.status_code})"
+            )
+        if state.confidence is not None:
+            lines.append(
+                "Confidence: "
+                f"{state.confidence.get('score')} / threshold "
+                f"{state.confidence.get('threshold')}"
+            )
+        if state.error is not None:
+            lines.append(f"Step error: {state.error.message}")
+        lines.append("")
+        lines.append("No copyable CSV is available because the confidence gate failed.")
+        return "\n".join(lines)
+
     def _finalize(self, state: BreweryRunState) -> BreweryRunState:
         if state.step_outcomes and state.step_outcomes[-1].step_id != "render":
-            renderer_output = self._renderer.render(state)
+            renderer_output = self._render_output(state)
             return state.model_copy(
                 update={
                     "rendered_output": renderer_output,

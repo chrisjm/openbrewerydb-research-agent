@@ -110,3 +110,28 @@ def test_orchestrator_continues_after_step_error_and_preserves_state():
     assert result.error.code == "technical_blocked"
     assert result.rendered_output.startswith("rendered Auburn Ale House in Auburn, CA")
     assert result.step_outcomes[-1].step_id == "render"
+
+
+def test_orchestrator_suppresses_copyable_output_when_gate_fails():
+    class GateFailRenderer:
+        def render(self, state):
+            return "name,city\nAuburn Ale House,Auburn"
+
+    result = BreweryRunOrchestrator(
+        obdb_adapter=StubOBDBAdapter(),
+        state_license_adapter=StubStateLicenseAdapter(),
+        website_adapter=StubWebsiteAdapter(
+            WebsiteSignal(
+                signal="active",
+                final_url="https://brew.example",
+                status_code=200,
+                source_url="https://brew.example",
+            )
+        ),
+        renderer=GateFailRenderer(),
+        gate_step=lambda state: {"score": 0.69, "threshold": 0.7, "gate": "fail", "status": "ok"},
+    ).run("Auburn Ale House", "Auburn, CA")
+
+    assert result.gate["gate"] == "fail"
+    assert "Evidence-only output" in result.rendered_output
+    assert "name,city" not in result.rendered_output
