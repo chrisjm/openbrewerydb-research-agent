@@ -38,12 +38,26 @@ class StateLicenseRecord(BaseModel, frozen=True):
     fetched_at: str
 
 
+class WebsiteAddress(BaseModel, frozen=True):
+    """Structured address extracted from website (JSON-LD or similar)."""
+
+    street: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    phone: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
+
+
 class WebsiteSignal(BaseModel, frozen=True):
-    signal: Literal["active", "redirect", "404", "closed_keyword"]
+    signal: Literal["active", "redirect", "404", "closed_keyword", "unknown"]
     final_url: str
     status_code: int
     matched_phrase: str | None = None
     source_url: str
+    extracted_address: WebsiteAddress | None = None
 
 
 class StepOutcome(BaseModel, frozen=True):

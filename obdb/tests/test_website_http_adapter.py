@@ -164,6 +164,51 @@ def test_missing_identity_header_name_returns_config_error(monkeypatch):
     assert result.code == "config_error"
 
 
+def test_robots_request_error_assumes_allowed_and_proceeds(httpx_mock):
+    """SSL/connection error on robots.txt → assume allowed, check page anyway."""
+    httpx_mock.add_exception(httpx.RequestError("SSL error"), url="https://brew.example/robots.txt")
+    httpx_mock.add_response(url="https://brew.example", status_code=200, text="welcome taproom")
+    from obdb.adapters.website_http_adapter import WebsiteHttpAdapter
+
+    result = WebsiteHttpAdapter().check("https://brew.example")
+    assert result.signal == "active"
+    assert result.status_code == 200
+
+
+def test_active_page_with_jsonld_extracts_address(httpx_mock):
+    _add_robots_allow(httpx_mock)
+    body = """<html><head>
+    <script type="application/ld+json">{
+      "@type": "Brewery",
+      "name": "Test Brewery",
+      "telephone": "5125551234",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "123 Main St",
+        "addressLocality": "Austin",
+        "addressRegion": "TX",
+        "postalCode": "78736",
+        "addressCountry": "US"
+      },
+      "geo": {"@type": "GeoCoordinates", "latitude": 30.25, "longitude": -97.99}
+    }</script>
+    </head><body>welcome</body></html>"""
+    httpx_mock.add_response(url="https://brew.example", status_code=200, text=body)
+    from obdb.adapters.website_http_adapter import WebsiteHttpAdapter
+
+    result = WebsiteHttpAdapter().check("https://brew.example")
+    assert result.signal == "active"
+    assert result.extracted_address is not None
+    addr = result.extracted_address
+    assert addr.street == "123 Main St"
+    assert addr.city == "Austin"
+    assert addr.state == "TX"
+    assert addr.postal_code == "78736"
+    assert addr.phone == "5125551234"
+    assert addr.latitude == "30.25"
+    assert addr.longitude == "-97.99"
+
+
 def test_unreadable_robots_returns_technical_blocked(httpx_mock):
     httpx_mock.add_response(
         url="https://brew.example/robots.txt", status_code=503, text="unavailable"

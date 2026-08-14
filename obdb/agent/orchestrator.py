@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from obdb.agent.state import BreweryRunState, StepError, StepOutcome
+from obdb.agent.state import BreweryRunState, StepError, StepOutcome, WebsiteSignal
 from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
 from obdb.ports.obdb_port import OBDBQuery
 from obdb.ports.state_license_port import LicenseQuery
@@ -57,8 +57,7 @@ class BreweryRunOrchestrator:
             return self._finalize(run_state)
 
         run_state = self._run_step(run_state, "website_check", self._check_website)
-        if run_state.error is not None:
-            return self._finalize(run_state)
+        # website_check is non-blocking — unknown signal continues the pipeline
 
         run_state = self._run_step(run_state, "confidence", self._score)
         if run_state.error is not None:
@@ -185,32 +184,54 @@ class BreweryRunOrchestrator:
         if state.obdb_record is None or not state.obdb_record.website_url:
             return state.model_copy(
                 update={
-                    "error": StepError(
-                        step_id="website_check",
-                        message="No website URL available",
-                        source=None,
-                        code="technical_blocked",
+                    "website_signal": WebsiteSignal(
+                        signal="unknown",
+                        final_url="",
+                        status_code=0,
+                        source_url="",
                     ),
                     "step_outcomes": [
                         *state.step_outcomes,
                         StepOutcome(
                             step_id="website_check",
-                            status="error",
+                            status="ok",
                             detail="No website URL available",
                         ),
                     ],
                 }
             )
 
-        result = self._website_adapter.check(state.obdb_record.website_url)
+        url = state.obdb_record.website_url
+        result = self._website_adapter.check(url)
         if isinstance(result, StepError):
+            if result.code == "config_error":
+                return state.model_copy(
+                    update={
+                        "error": result,
+                        "step_outcomes": [
+                            *state.step_outcomes,
+                            StepOutcome(
+                                step_id="website_check", status="error", detail=result.message
+                            ),
+                        ],
+                    }
+                )
+            # technical_blocked or policy_blocked — can't evaluate, not a pipeline failure
             return state.model_copy(
                 update={
-                    "error": result,
-                    "website_signal": None,
+                    "website_signal": WebsiteSignal(
+                        signal="unknown",
+                        final_url=url,
+                        status_code=0,
+                        source_url=url,
+                    ),
                     "step_outcomes": [
                         *state.step_outcomes,
-                        StepOutcome(step_id="website_check", status="error", detail=result.message),
+                        StepOutcome(
+                            step_id="website_check",
+                            status="ok",
+                            detail=f"Website signal unavailable: {result.message}",
+                        ),
                     ],
                 }
             )

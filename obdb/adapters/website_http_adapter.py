@@ -1,11 +1,18 @@
+import json as _json
 import os
+import re
+import ssl
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 
 import httpx
+import truststore
 
-from obdb.agent.state import StepError, WebsiteSignal
+from obdb.agent.state import StepError, WebsiteAddress, WebsiteSignal
 from obdb.ports.website_port import WebsitePort
+
+# Use OS/browser trust store (handles AIA fetching on macOS/Windows; system certs on Linux)
+_SSL_CTX = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 DEFAULT_CLOSURE_PHRASES: tuple[str, ...] = (
     "permanently closed",
@@ -26,11 +33,44 @@ _BLOCKER_PATTERNS: tuple[tuple[str, str], ...] = (
     ("log in to continue", "Website requires authentication; plain HTTP evaluation blocked."),
 )
 
+_JSONLD_RE = re.compile(
+    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    re.DOTALL | re.IGNORECASE,
+)
+
 
 def _blocked_reason(body_text: str) -> str | None:
     for pattern, reason in _BLOCKER_PATTERNS:
         if pattern in body_text:
             return reason
+    return None
+
+
+def _extract_jsonld_address(html: str) -> WebsiteAddress | None:
+    """Pull the first PostalAddress from any JSON-LD block on the page."""
+    for m in _JSONLD_RE.finditer(html):
+        try:
+            data = _json.loads(m.group(1))
+        except _json.JSONDecodeError:
+            continue
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            addr = item.get("address")
+            if not isinstance(addr, dict):
+                continue
+            geo = item.get("geo") or {}
+            lat = geo.get("latitude")
+            lon = geo.get("longitude")
+            return WebsiteAddress(
+                street=addr.get("streetAddress") or None,
+                city=addr.get("addressLocality") or None,
+                state=addr.get("addressRegion") or None,
+                postal_code=addr.get("postalCode") or None,
+                country=addr.get("addressCountry") or None,
+                phone=item.get("telephone") or None,
+                latitude=str(lat) if lat is not None else None,
+                longitude=str(lon) if lon is not None else None,
+            )
     return None
 
 
@@ -71,7 +111,9 @@ class WebsiteHttpAdapter:
             )
 
         try:
-            resp = httpx.get(url, timeout=_TIMEOUT, follow_redirects=False, headers=headers)
+            resp = httpx.get(
+                url, timeout=_TIMEOUT, follow_redirects=False, headers=headers, verify=_SSL_CTX
+            )
         except httpx.RequestError as exc:
             return self._maybe_fallback(
                 url,
@@ -118,7 +160,6 @@ class WebsiteHttpAdapter:
                     ),
                     allow_browser_fallback=allow_browser_fallback,
                 )
-
             for phrase in self._closure_phrases:
                 phrase_lower = phrase.lower()
                 if phrase_lower and phrase_lower in body_lower:
@@ -134,6 +175,7 @@ class WebsiteHttpAdapter:
                 final_url=final_url,
                 status_code=status_code,
                 source_url=url,
+                extracted_address=_extract_jsonld_address(resp.text),
             )
 
         blocked_reason = _blocked_reason(body_lower)
@@ -171,14 +213,16 @@ class WebsiteHttpAdapter:
             )
         robots_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
         try:
-            resp = httpx.get(robots_url, timeout=_TIMEOUT, follow_redirects=True, headers=headers)
-        except httpx.RequestError as exc:
-            return StepError(
-                step_id=_STEP_ID,
-                message=f"Unable to read robots.txt: {exc}",
-                source=robots_url,
-                code="technical_blocked",
+            resp = httpx.get(
+                robots_url,
+                timeout=_TIMEOUT,
+                follow_redirects=True,
+                headers=headers,
+                verify=_SSL_CTX,
             )
+        except httpx.RequestError:
+            # SSL/connection failure on robots.txt — assume allowed, proceed
+            return None
 
         if resp.status_code != 200:
             return StepError(
