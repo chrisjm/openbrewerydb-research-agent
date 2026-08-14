@@ -3,20 +3,10 @@ import json as _json
 import httpx
 
 from obdb.agent.state import OBDBRecord, StepError
+from obdb.ports.obdb_port import OBDBQuery
 
 _BASE = "https://api.openbrewerydb.org/v1"
 _TIMEOUT = 10.0
-
-
-def _location_matches(record: dict, location: str) -> bool:
-    """Word-boundary check: any location token matches a word in city or state fields."""
-    tokens = {t.strip().lower() for t in location.replace(",", " ").split() if t.strip()}
-    if not tokens:
-        return False
-    city = (record.get("city") or "").lower()
-    state = (record.get("state_province") or record.get("state") or "").lower()
-    haystack_words = set((city + " " + state).split())
-    return bool(tokens & haystack_words)
 
 
 def _to_record(raw: dict) -> OBDBRecord | StepError:
@@ -40,12 +30,19 @@ def _to_record(raw: dict) -> OBDBRecord | StepError:
 
 
 class OBDBApiAdapter:
-    """Runtime OBDB lookup via the public API (AD-3: no bulk-cache path here)."""
+    """Structured OBDB lookup via /breweries with by_name + location filters."""
 
-    def lookup_one(self, name: str, location: str) -> OBDBRecord | StepError | None:
-        params = {"query": name, "per_page": 5}
+    def lookup_one(self, query: OBDBQuery) -> OBDBRecord | StepError | None:
+        params: dict = {"by_name": query.name, "per_page": 10}
+        if query.state:
+            params["by_state"] = query.state.lower()
+        if query.city:
+            params["by_city"] = query.city
+        if query.postal_code:
+            params["by_postal"] = query.postal_code
+
         try:
-            resp = httpx.get(f"{_BASE}/breweries/search", params=params, timeout=_TIMEOUT)
+            resp = httpx.get(f"{_BASE}/breweries", params=params, timeout=_TIMEOUT)
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             return StepError(
@@ -76,10 +73,10 @@ class OBDBApiAdapter:
                 source=str(resp.url),
             )
 
-        for raw in results:
-            if not isinstance(raw, dict):
-                continue
-            if _location_matches(raw, location):
-                record = _to_record(raw)
-                return record  # StepError or OBDBRecord — both valid return types
-        return None
+        if not results:
+            return None
+
+        raw = results[0]
+        if not isinstance(raw, dict):
+            return None
+        return _to_record(raw)

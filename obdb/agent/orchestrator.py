@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from obdb.agent.state import BreweryRunState, StepError, StepOutcome
 from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
+from obdb.ports.obdb_port import OBDBQuery
 
 
 class BreweryRunOrchestrator:
@@ -31,34 +32,46 @@ class BreweryRunOrchestrator:
             )
         )
 
-    def run(self, name: str, location: str) -> BreweryRunState:
-        state = BreweryRunState(target_name=name, target_location=location)
+    def run(
+        self,
+        name: str,
+        *,
+        state: str | None = None,
+        city: str | None = None,
+        postal_code: str | None = None,
+    ) -> BreweryRunState:
+        run_state = BreweryRunState(
+            target_name=name,
+            target_state=state,
+            target_city=city,
+            target_postal=postal_code,
+        )
 
-        state = self._run_step(state, "obdb_lookup", self._lookup_obdb)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "obdb_lookup", self._lookup_obdb)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "state_license_fetch", self._fetch_state_license)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "state_license_fetch", self._fetch_state_license)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "website_check", self._check_website)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "website_check", self._check_website)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "confidence", self._score)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "confidence", self._score)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "diff", self._diff)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "diff", self._diff)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "gate", self._gate)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "gate", self._gate)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        return self._run_step(state, "render", self._render)
+        return self._run_step(run_state, "render", self._render)
 
     def _run_step(self, state: BreweryRunState, step_id: str, step_fn):
         try:
@@ -81,7 +94,25 @@ class BreweryRunOrchestrator:
         return next_state
 
     def _lookup_obdb(self, state: BreweryRunState) -> BreweryRunState:
-        record = self._obdb_adapter.lookup_one(state.target_name, state.target_location)
+        try:
+            query = OBDBQuery(
+                name=state.target_name,
+                state=state.target_state,
+                city=state.target_city,
+                postal_code=state.target_postal,
+            )
+        except ValueError as exc:
+            err = StepError(step_id="obdb_lookup", message=str(exc))
+            return state.model_copy(
+                update={
+                    "error": err,
+                    "step_outcomes": [
+                        *state.step_outcomes,
+                        StepOutcome(step_id="obdb_lookup", status="error", detail=str(exc)),
+                    ],
+                }
+            )
+        record = self._obdb_adapter.lookup_one(query)
         if isinstance(record, StepError):
             return state.model_copy(
                 update={
@@ -119,7 +150,7 @@ class BreweryRunOrchestrator:
         )
 
     def _fetch_state_license(self, state: BreweryRunState) -> BreweryRunState:
-        city_name = state.target_location.split(",")[0].strip()
+        city_name = state.target_city or (state.target_location.split(",")[0].strip())
         result = self._state_license_adapter.lookup_one(state.target_name, city_name)
         if isinstance(result, StepError):
             return state.model_copy(

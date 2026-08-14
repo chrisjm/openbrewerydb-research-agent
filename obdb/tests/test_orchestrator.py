@@ -1,16 +1,17 @@
 from obdb.agent.orchestrator import BreweryRunOrchestrator
 from obdb.agent.state import OBDBRecord, StepError, WebsiteSignal
+from obdb.ports.obdb_port import OBDBQuery
 
 
 class StubOBDBAdapter:
     def __init__(self):
         self.calls = []
 
-    def lookup_one(self, name: str, location: str):
-        self.calls.append(("obdb_lookup", name, location))
+    def lookup_one(self, query: OBDBQuery):
+        self.calls.append(query)
         return OBDBRecord(
             id="brew-1",
-            name=name,
+            name=query.name,
             city="Auburn",
             state_province="California",
             country="US",
@@ -71,7 +72,7 @@ def test_orchestrator_runs_steps_in_fixed_order():
         state_license_adapter=state_license,
         website_adapter=website,
         renderer=renderer,
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
     assert [outcome.step_id for outcome in result.step_outcomes] == [
         "obdb_lookup",
@@ -104,7 +105,7 @@ def test_orchestrator_continues_after_step_error_and_preserves_state():
         state_license_adapter=state_license,
         website_adapter=website,
         renderer=renderer,
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
     assert result.error is not None
     assert result.error.code == "technical_blocked"
@@ -130,7 +131,7 @@ def test_orchestrator_suppresses_copyable_output_when_gate_fails():
         ),
         renderer=GateFailRenderer(),
         gate_step=lambda state: {"score": 0.69, "threshold": 0.7, "gate": "fail", "status": "ok"},
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
     assert result.gate["gate"] == "fail"
     assert "Evidence-only output" in result.rendered_output

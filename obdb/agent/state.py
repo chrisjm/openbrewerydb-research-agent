@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 WebsiteErrorCode = Literal["policy_blocked", "technical_blocked", "config_error"]
 
@@ -54,8 +54,17 @@ class StepOutcome(BaseModel, frozen=True):
 
 class BreweryRunState(BaseModel, frozen=True):
     target_name: str
-    target_location: str
+    target_state: str | None = None
+    target_city: str | None = None
+    target_postal: str | None = None
     obdb_record: OBDBRecord | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def target_location(self) -> str:
+        """Human-readable location label derived from structured fields."""
+        return ", ".join(f for f in [self.target_city, self.target_state, self.target_postal] if f)
+
     state_license_records: list[StateLicenseRecord] = Field(default_factory=list)
     website_signal: WebsiteSignal | None = None
     confidence: dict | None = None
