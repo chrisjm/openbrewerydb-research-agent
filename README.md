@@ -22,6 +22,26 @@ Result: Contributors get trusted correction proposals with full provenance, fewe
 uv sync --extra dev
 ```
 
+### Run the CLI
+```bash
+SCRAPER_IDENTITY_HEADER_VALUE="Your Bot <you@example.com>" \
+  uv run obdb-run "Lone Pint" --state TX
+```
+
+`obdb-run` takes a brewery name plus `--state` (required, one of `CA`, `CO`, `TX` —
+selects the matching state license adapter) and optional `--city` / `--postal`
+narrowers. It runs the full pipeline (OBDB lookup → state license → website
+check → confidence → diff → gate) and prints the rendered summary followed by a
+step-outcomes table. Exit code is `0` on success, `1` if any step errored.
+
+`SCRAPER_IDENTITY_HEADER_VALUE` is required for the website check step; without
+it the website step returns a config error and the run still completes
+(evidence-only output). The header name defaults to `User-Agent` and can be
+overridden via `SCRAPER_IDENTITY_HEADER_NAME`.
+
+A hardcoded example script is also available at
+`scripts/run_jester_king.py` (Jester King / Texas).
+
 ### Test
 ```bash
 uv run pytest obdb/tests/ -v
@@ -41,7 +61,10 @@ obdb/
 ├── adapters/        # Pluggable data sources
 │   ├── obdb_api_adapter.py         # Brewery lookup
 │   ├── ca/co/tx_license_adapter.py # State license queries
-│   └── website_*_adapter.py        # Website status checks
+│   ├── website_http_adapter.py     # Website status checks (HTTP + robots)
+│   ├── website_browser_adapter.py  # JS-capable fallback (injectable checker)
+│   └── text_renderer.py            # Plain-text run summary
+├── cli.py           # obdb-run console entry point
 ├── domain/          # Business logic
 │   ├── closure.py       # Closed brewery mapping
 │   ├── diff.py          # Field diff generation
@@ -49,6 +72,9 @@ obdb/
 ├── ports/           # Interface contracts
 └── tests/           # Test suite with snapshot fixtures
 ```
+
+The `obdb-run` console script is registered in `pyproject.toml` under
+`[project.scripts]` and points at `obdb.cli:main`.
 
 ## Architecture
 

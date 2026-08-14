@@ -7,6 +7,12 @@ dependencies = ["httpx>=0.27", "pydantic>=2.7", "truststore>=0.9"]
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-httpx>=0.30", "ruff>=0.4"]
 
+[project.scripts]
+obdb-run = "obdb.cli:main"
+
+[tool.uv]
+package = true
+
 [tool.ruff]
 line-length = 100
 

@@ -35,6 +35,7 @@ Required CI checks run automatically on every PR:
 | Purpose | Command |
 |---|---|
 | Sync dependencies | `uv sync --extra dev` |
+| Run the CLI | `SCRAPER_IDENTITY_HEADER_VALUE="..." uv run obdb-run "<name>" --state <CA\|CO\|TX>` |
 | Run all tests | `uv run pytest obdb/tests/ -v` |
 | Run single test | `uv run pytest obdb/tests/test_orchestrator.py -v` |
 | Lint (check) | `uv run ruff check obdb/` |
