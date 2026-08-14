@@ -49,6 +49,7 @@ class TXLicenseAdapter:
     """TX TABC license adapter. Default: CSV fixture. Live: Socrata open data API."""
 
     state_code = "TX"
+    state_name = "Texas"  # OBDB by_state expects full names, not abbreviations
     country_code = "US"
 
     def fetch_bulk(self, *, live: bool = False) -> list[StateLicenseRecord] | StepError:

@@ -41,6 +41,7 @@ class CALicenseAdapter:
     """
 
     state_code = "CA"
+    state_name = "California"  # OBDB by_state expects full names, not abbreviations
     country_code = "US"
 
     def fetch_bulk(self, *, live: bool = False) -> list[StateLicenseRecord] | StepError:

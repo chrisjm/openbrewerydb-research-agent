@@ -16,6 +16,9 @@ from obdb.adapters.tx_license_adapter import TXLicenseAdapter
 from obdb.adapters.website_http_adapter import WebsiteHttpAdapter
 from obdb.agent.orchestrator import BreweryRunOrchestrator
 
+# 2-letter code → license adapter class. Each adapter carries its own
+# state_name (full spelling for OBDB's by_state filter) and country_code,
+# so this registry is the only place to touch when a new state ships.
 _LICENSE_ADAPTERS = {
     "CA": CALicenseAdapter,
     "CO": COLicenseAdapter,
@@ -23,13 +26,13 @@ _LICENSE_ADAPTERS = {
 }
 
 
-def _load_license_adapter(state_code: str):
-    """Resolve the state license adapter class by two-letter state code."""
+def _resolve_state(state_code: str):
+    """Return (adapter_class, full_state_name) for a 2-letter state code."""
     cls = _LICENSE_ADAPTERS.get(state_code.upper())
     if cls is None:
         supported = ", ".join(sorted(_LICENSE_ADAPTERS))
         sys.exit(f"Unsupported state {state_code!r}. License adapter available for: {supported}.")
-    return cls
+    return cls, cls.state_name
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -48,14 +51,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    license_adapter_cls = _load_license_adapter(args.state)
+    license_adapter_cls, state_name = _resolve_state(args.state)
 
     result = BreweryRunOrchestrator(
         obdb_adapter=OBDBApiAdapter(),
         state_license_adapter=license_adapter_cls(),
         website_adapter=WebsiteHttpAdapter(),
         renderer=TextRenderer(),
-    ).run(args.name, state=args.state, city=args.city, postal_code=args.postal_code)
+    ).run(args.name, state=state_name, city=args.city, postal_code=args.postal_code)
 
     print(result.rendered_output)
     print("--- step outcomes ---")

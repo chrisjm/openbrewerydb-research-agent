@@ -16,6 +16,12 @@ def test_state_adapter_maps_known_codes():
     assert _LICENSE_ADAPTERS["TX"] is TXLicenseAdapter
 
 
+def test_adapters_carry_full_state_name_for_obdb():
+    assert CALicenseAdapter.state_name == "California"
+    assert COLicenseAdapter.state_name == "Colorado"
+    assert TXLicenseAdapter.state_name == "Texas"
+
+
 def test_unsupported_state_exits():
     from obdb.cli import main
 
@@ -61,7 +67,7 @@ def test_main_runs_pipeline_and_prints_outcomes(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert code == 0
     assert captured["name"] == "Lone Pint"
-    assert captured["state"] == "TX"
+    assert captured["state"] == "Texas"  # full name for OBDB by_state filter
     assert captured["city"] == "Austin"
     assert "rendered Lone Pint in Texas" in out
     assert "--- step outcomes ---" in out
