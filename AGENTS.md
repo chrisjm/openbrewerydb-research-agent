@@ -6,8 +6,9 @@
 2. **Work on a feature branch, never directly on `main`.** For each story, create a branch named `feat/<story-key>` (e.g. `feat/1-2-normalize-state-license-records`) before writing any code.
 3. **Tests pass before every commit.** `uv run pytest obdb/tests/ -v` must be green. If a task introduces a test failure, fix it in that same task — do not defer.
 4. **Ruff passes before every commit.** `uv run ruff check obdb/ && uv run ruff format --check obdb/`. Format violations are a build break, not a nit.
-5. **One commit per plan task.** Commit messages follow the task packet's specified message exactly. Include the `Co-authored-by: Copilot` trailer.
-6. **Open a PR when the story is complete.** After the final commit on the feature branch, open a PR targeting `main` with title `feat(<story-key>): <story title>` and a body that references the story file path. Do not merge — leave the PR for human review.
+5. **One commit per plan task.** Commit messages follow the task packet's specified message exactly. Include the co-author trailer for the agent you are. You know your own identity at runtime — do not hardcode or assume another agent's trailer.
+6. **Check git state before every commit.** Run `git status` and `git log --oneline -5` immediately before staging. If the working tree is already clean or the change is already committed, stop — do not re-commit. Never run `git commit` without first confirming there are uncommitted changes.
+7. **Open a PR when the story is complete.** After the final commit on the feature branch, open a PR targeting `main` with title `feat(<story-key>): <story title>` and a body that references the story file path. Do not merge — leave the PR for human review.
 
 ## Branch workflow
 
