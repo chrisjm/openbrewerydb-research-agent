@@ -8,7 +8,7 @@ from obdb.adapters.ca_license_adapter import CALicenseAdapter
 from obdb.adapters.co_license_adapter import COLicenseAdapter
 from obdb.adapters.tx_license_adapter import TXLicenseAdapter
 from obdb.agent.state import StateLicenseRecord, StepError
-from obdb.ports.state_license_port import StateLicensePort
+from obdb.ports.state_license_port import LicenseQuery, StateLicensePort
 
 # ---------------------------------------------------------------------------
 # Protocol compliance
@@ -52,40 +52,42 @@ def test_fetch_bulk_returns_records(adapter_cls):
 
 
 def test_ca_lookup_one_hit():
-    result = CALicenseAdapter().lookup_one("Anchor Brewing", "San Francisco")
+    result = CALicenseAdapter().lookup_one(
+        LicenseQuery(name="Anchor Brewing", city="San Francisco")
+    )
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].id == "CA-12345"
 
 
 def test_ca_lookup_one_miss():
-    result = CALicenseAdapter().lookup_one("Nonexistent Brewery", "Nowhere")
+    result = CALicenseAdapter().lookup_one(LicenseQuery(name="Nonexistent Brewery", city="Nowhere"))
     assert result == []
 
 
 def test_co_lookup_one_hit():
     # Real fixture contains Odell Brewing CO Inc in Fort Collins
-    result = COLicenseAdapter().lookup_one("Odell Brewing", "Fort Collins")
+    result = COLicenseAdapter().lookup_one(LicenseQuery(name="Odell Brewing", city="Fort Collins"))
     assert isinstance(result, list)
     assert len(result) >= 1
     assert result[0].state_code == "CO"
 
 
 def test_co_lookup_one_miss():
-    result = COLicenseAdapter().lookup_one("Ghost Brewery", "Denver")
+    result = COLicenseAdapter().lookup_one(LicenseQuery(name="Ghost Brewery", city="Denver"))
     assert result == []
 
 
 def test_tx_lookup_one_hit():
     # Real fixture contains SAINT ARNOLD BREWING COMPANY in Houston
-    result = TXLicenseAdapter().lookup_one("Saint Arnold", "Houston")
+    result = TXLicenseAdapter().lookup_one(LicenseQuery(name="Saint Arnold", city="Houston"))
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].state_code == "TX"
 
 
 def test_tx_lookup_one_miss():
-    result = TXLicenseAdapter().lookup_one("Ghost Brewery", "Amarillo")
+    result = TXLicenseAdapter().lookup_one(LicenseQuery(name="Ghost Brewery", city="Amarillo"))
     assert result == []
 
 
@@ -227,5 +229,5 @@ def test_lookup_one_propagates_step_error(
 ):
     mod = importlib.import_module(adapter_mod_name)
     monkeypatch.setattr(mod, fixture_attr, tmp_path / "nonexistent")
-    result = adapter_cls().lookup_one("Any", "City")
+    result = adapter_cls().lookup_one(LicenseQuery(name="Any", city="City"))
     assert isinstance(result, StepError)

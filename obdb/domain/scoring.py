@@ -12,7 +12,7 @@ def compute_confidence(state: BreweryRunState) -> dict:
         signal_score += 0.35
     if state.state_license_records:
         signal_score += 0.25
-    if state.website_signal is not None:
+    if state.website_signal is not None and state.website_signal.signal != "unknown":
         signal_score += 0.25
     if state.error is None:
         signal_score += 0.15

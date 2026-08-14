@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from obdb.agent.state import BreweryRunState, StepError, StepOutcome
+from obdb.agent.state import BreweryRunState, StepError, StepOutcome, WebsiteSignal
+from obdb.domain.diff import build_candidate, build_diff
 from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
+from obdb.ports.obdb_port import OBDBQuery
+from obdb.ports.state_license_port import LicenseQuery
 
 
 class BreweryRunOrchestrator:
@@ -23,7 +26,7 @@ class BreweryRunOrchestrator:
         self._website_adapter = website_adapter
         self._renderer = renderer
         self._score_step = score_step or (lambda state: compute_confidence(state))
-        self._diff_step = diff_step or (lambda state: {"diff": [], "status": "ok"})
+        self._diff_step = diff_step or self._default_diff
         self._gate_step = gate_step or (
             lambda state: evaluate_gate(
                 self._score_step(state)["score"],
@@ -31,34 +34,45 @@ class BreweryRunOrchestrator:
             )
         )
 
-    def run(self, name: str, location: str) -> BreweryRunState:
-        state = BreweryRunState(target_name=name, target_location=location)
+    def run(
+        self,
+        name: str,
+        *,
+        state: str | None = None,
+        city: str | None = None,
+        postal_code: str | None = None,
+    ) -> BreweryRunState:
+        run_state = BreweryRunState(
+            target_name=name,
+            target_state=state,
+            target_city=city,
+            target_postal=postal_code,
+        )
 
-        state = self._run_step(state, "obdb_lookup", self._lookup_obdb)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "obdb_lookup", self._lookup_obdb)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "state_license_fetch", self._fetch_state_license)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "state_license_fetch", self._fetch_state_license)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "website_check", self._check_website)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "website_check", self._check_website)
+        # website_check is non-blocking — unknown signal continues the pipeline
 
-        state = self._run_step(state, "confidence", self._score)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "confidence", self._score)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "diff", self._diff)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "diff", self._diff)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        state = self._run_step(state, "gate", self._gate)
-        if state.error is not None:
-            return self._finalize(state)
+        run_state = self._run_step(run_state, "gate", self._gate)
+        if run_state.error is not None:
+            return self._finalize(run_state)
 
-        return self._run_step(state, "render", self._render)
+        return self._run_step(run_state, "render", self._render)
 
     def _run_step(self, state: BreweryRunState, step_id: str, step_fn):
         try:
@@ -81,7 +95,25 @@ class BreweryRunOrchestrator:
         return next_state
 
     def _lookup_obdb(self, state: BreweryRunState) -> BreweryRunState:
-        record = self._obdb_adapter.lookup_one(state.target_name, state.target_location)
+        try:
+            query = OBDBQuery(
+                name=state.target_name,
+                state=state.target_state,
+                city=state.target_city,
+                postal_code=state.target_postal,
+            )
+        except ValueError as exc:
+            err = StepError(step_id="obdb_lookup", message=str(exc))
+            return state.model_copy(
+                update={
+                    "error": err,
+                    "step_outcomes": [
+                        *state.step_outcomes,
+                        StepOutcome(step_id="obdb_lookup", status="error", detail=str(exc)),
+                    ],
+                }
+            )
+        record = self._obdb_adapter.lookup_one(query)
         if isinstance(record, StepError):
             return state.model_copy(
                 update={
@@ -119,8 +151,8 @@ class BreweryRunOrchestrator:
         )
 
     def _fetch_state_license(self, state: BreweryRunState) -> BreweryRunState:
-        city_name = state.target_location.split(",")[0].strip()
-        result = self._state_license_adapter.lookup_one(state.target_name, city_name)
+        query = LicenseQuery(name=state.target_name, city=state.target_city)
+        result = self._state_license_adapter.lookup_one(query)
         if isinstance(result, StepError):
             return state.model_copy(
                 update={
@@ -153,32 +185,54 @@ class BreweryRunOrchestrator:
         if state.obdb_record is None or not state.obdb_record.website_url:
             return state.model_copy(
                 update={
-                    "error": StepError(
-                        step_id="website_check",
-                        message="No website URL available",
-                        source=None,
-                        code="technical_blocked",
+                    "website_signal": WebsiteSignal(
+                        signal="unknown",
+                        final_url="",
+                        status_code=0,
+                        source_url="",
                     ),
                     "step_outcomes": [
                         *state.step_outcomes,
                         StepOutcome(
                             step_id="website_check",
-                            status="error",
+                            status="ok",
                             detail="No website URL available",
                         ),
                     ],
                 }
             )
 
-        result = self._website_adapter.check(state.obdb_record.website_url)
+        url = state.obdb_record.website_url
+        result = self._website_adapter.check(url)
         if isinstance(result, StepError):
+            if result.code == "config_error":
+                return state.model_copy(
+                    update={
+                        "error": result,
+                        "step_outcomes": [
+                            *state.step_outcomes,
+                            StepOutcome(
+                                step_id="website_check", status="error", detail=result.message
+                            ),
+                        ],
+                    }
+                )
+            # technical_blocked or policy_blocked — can't evaluate, not a pipeline failure
             return state.model_copy(
                 update={
-                    "error": result,
-                    "website_signal": None,
+                    "website_signal": WebsiteSignal(
+                        signal="unknown",
+                        final_url=url,
+                        status_code=0,
+                        source_url=url,
+                    ),
                     "step_outcomes": [
                         *state.step_outcomes,
-                        StepOutcome(step_id="website_check", status="error", detail=result.message),
+                        StepOutcome(
+                            step_id="website_check",
+                            status="ok",
+                            detail=f"Website signal unavailable: {result.message}",
+                        ),
                     ],
                 }
             )
@@ -207,6 +261,13 @@ class BreweryRunOrchestrator:
                 ],
             }
         )
+
+    def _default_diff(self, state: BreweryRunState) -> dict:
+        if state.obdb_record is None:
+            return {"diff": [], "status": "ok"}
+        candidate, sources = build_candidate(state)
+        changes = build_diff(state.obdb_record, candidate, sources)
+        return {"diff": changes, "status": "ok"}
 
     def _diff(self, state: BreweryRunState) -> BreweryRunState:
         payload = self._diff_step(state)

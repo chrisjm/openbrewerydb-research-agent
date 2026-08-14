@@ -1,16 +1,18 @@
 from obdb.agent.orchestrator import BreweryRunOrchestrator
 from obdb.agent.state import OBDBRecord, StepError, WebsiteSignal
+from obdb.ports.obdb_port import OBDBQuery
+from obdb.ports.state_license_port import LicenseQuery
 
 
 class StubOBDBAdapter:
     def __init__(self):
         self.calls = []
 
-    def lookup_one(self, name: str, location: str):
-        self.calls.append(("obdb_lookup", name, location))
+    def lookup_one(self, query: OBDBQuery):
+        self.calls.append(query)
         return OBDBRecord(
             id="brew-1",
-            name=name,
+            name=query.name,
             city="Auburn",
             state_province="California",
             country="US",
@@ -25,8 +27,8 @@ class StubStateLicenseAdapter:
     def __init__(self):
         self.calls = []
 
-    def lookup_one(self, name: str, city: str):
-        self.calls.append(("lookup_one", name, city))
+    def lookup_one(self, query: LicenseQuery):
+        self.calls.append(query)
         return []
 
     def fetch_bulk(self):
@@ -71,7 +73,7 @@ def test_orchestrator_runs_steps_in_fixed_order():
         state_license_adapter=state_license,
         website_adapter=website,
         renderer=renderer,
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
     assert [outcome.step_id for outcome in result.step_outcomes] == [
         "obdb_lookup",
@@ -86,7 +88,8 @@ def test_orchestrator_runs_steps_in_fixed_order():
     assert result.rendered_output == "rendered Auburn Ale House in Auburn, CA"
 
 
-def test_orchestrator_continues_after_step_error_and_preserves_state():
+def test_orchestrator_website_unavailable_continues_pipeline():
+    """technical_blocked on website is non-blocking — pipeline runs to completion."""
     obdb = StubOBDBAdapter()
     state_license = StubStateLicenseAdapter()
     website = StubWebsiteAdapter(
@@ -104,12 +107,21 @@ def test_orchestrator_continues_after_step_error_and_preserves_state():
         state_license_adapter=state_license,
         website_adapter=website,
         renderer=renderer,
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
-    assert result.error is not None
-    assert result.error.code == "technical_blocked"
-    assert result.rendered_output.startswith("rendered Auburn Ale House in Auburn, CA")
+    assert result.error is None
+    assert result.website_signal is not None
+    assert result.website_signal.signal == "unknown"
     assert result.step_outcomes[-1].step_id == "render"
+    assert [o.step_id for o in result.step_outcomes] == [
+        "obdb_lookup",
+        "state_license_fetch",
+        "website_check",
+        "confidence",
+        "diff",
+        "gate",
+        "render",
+    ]
 
 
 def test_orchestrator_suppresses_copyable_output_when_gate_fails():
@@ -130,7 +142,7 @@ def test_orchestrator_suppresses_copyable_output_when_gate_fails():
         ),
         renderer=GateFailRenderer(),
         gate_step=lambda state: {"score": 0.69, "threshold": 0.7, "gate": "fail", "status": "ok"},
-    ).run("Auburn Ale House", "Auburn, CA")
+    ).run("Auburn Ale House", city="Auburn", state="CA")
 
     assert result.gate["gate"] == "fail"
     assert "Evidence-only output" in result.rendered_output
