@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from obdb.agent.state import BreweryRunState, StepError, StepOutcome, WebsiteSignal
+from obdb.domain.diff import build_candidate, build_diff
 from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
 from obdb.ports.obdb_port import OBDBQuery
 from obdb.ports.state_license_port import LicenseQuery
@@ -25,7 +26,7 @@ class BreweryRunOrchestrator:
         self._website_adapter = website_adapter
         self._renderer = renderer
         self._score_step = score_step or (lambda state: compute_confidence(state))
-        self._diff_step = diff_step or (lambda state: {"diff": [], "status": "ok"})
+        self._diff_step = diff_step or self._default_diff
         self._gate_step = gate_step or (
             lambda state: evaluate_gate(
                 self._score_step(state)["score"],
@@ -260,6 +261,13 @@ class BreweryRunOrchestrator:
                 ],
             }
         )
+
+    def _default_diff(self, state: BreweryRunState) -> dict:
+        if state.obdb_record is None:
+            return {"diff": [], "status": "ok"}
+        candidate, sources = build_candidate(state)
+        changes = build_diff(state.obdb_record, candidate, sources)
+        return {"diff": changes, "status": "ok"}
 
     def _diff(self, state: BreweryRunState) -> BreweryRunState:
         payload = self._diff_step(state)

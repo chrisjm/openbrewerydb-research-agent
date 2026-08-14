@@ -49,6 +49,16 @@ class TextRenderer:
             lines.append(f"Confidence: {score} / {threshold}  →  gate: {gate}")
             lines.append("")
 
+        changes = (state.diff or {}).get("diff", [])
+        if changes:
+            lines.append("Proposed Diffs")
+            for c in changes:
+                src = ", ".join(c.get("evidence_refs", []))
+                lines.append(
+                    f"  {c['field']:20s}  {str(c['old_value']):30s} → {c['new_value']}  [{src}]"
+                )
+            lines.append("")
+
         if state.error:
             lines.append(f"⚠ Error [{state.error.step_id}]: {state.error.message}")
             lines.append("")
