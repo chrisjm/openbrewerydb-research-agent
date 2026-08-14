@@ -5,6 +5,7 @@ from collections.abc import Callable
 from obdb.agent.state import BreweryRunState, StepError, StepOutcome
 from obdb.domain.scoring import DEFAULT_CONFIDENCE_THRESHOLD, compute_confidence, evaluate_gate
 from obdb.ports.obdb_port import OBDBQuery
+from obdb.ports.state_license_port import LicenseQuery
 
 
 class BreweryRunOrchestrator:
@@ -150,8 +151,8 @@ class BreweryRunOrchestrator:
         )
 
     def _fetch_state_license(self, state: BreweryRunState) -> BreweryRunState:
-        city_name = state.target_city or (state.target_location.split(",")[0].strip())
-        result = self._state_license_adapter.lookup_one(state.target_name, city_name)
+        query = LicenseQuery(name=state.target_name, city=state.target_city)
+        result = self._state_license_adapter.lookup_one(query)
         if isinstance(result, StepError):
             return state.model_copy(
                 update={

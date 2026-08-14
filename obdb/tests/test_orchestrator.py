@@ -1,6 +1,7 @@
 from obdb.agent.orchestrator import BreweryRunOrchestrator
 from obdb.agent.state import OBDBRecord, StepError, WebsiteSignal
 from obdb.ports.obdb_port import OBDBQuery
+from obdb.ports.state_license_port import LicenseQuery
 
 
 class StubOBDBAdapter:
@@ -26,8 +27,8 @@ class StubStateLicenseAdapter:
     def __init__(self):
         self.calls = []
 
-    def lookup_one(self, name: str, city: str):
-        self.calls.append(("lookup_one", name, city))
+    def lookup_one(self, query: LicenseQuery):
+        self.calls.append(query)
         return []
 
     def fetch_bulk(self):

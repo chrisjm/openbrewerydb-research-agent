@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 
 from obdb.agent.state import StateLicenseRecord, StepError
+from obdb.ports.state_license_port import LicenseQuery
 
 _FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "tx_license_hit.csv"
 _SOURCE_URL = (
@@ -63,9 +64,13 @@ class TXLicenseAdapter:
         except Exception as exc:
             return StepError(step_id=_STEP_ID, message=str(exc), source=str(_FIXTURE))
 
-    def lookup_one(self, name: str, city: str) -> list[StateLicenseRecord] | StepError:
+    def lookup_one(self, query: "LicenseQuery") -> list[StateLicenseRecord] | StepError:
         result = self.fetch_bulk()
         if isinstance(result, StepError):
             return result
-        name_l, city_l = name.lower(), city.lower()
-        return [r for r in result if name_l in r.name.lower() and city_l in (r.city or "").lower()]
+        name_l = query.name.lower()
+        matches = [r for r in result if name_l in r.name.lower()]
+        if query.city:
+            city_l = query.city.lower()
+            matches = [r for r in matches if city_l in (r.city or "").lower()]
+        return matches
